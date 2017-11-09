@@ -115,6 +115,7 @@ write.table(st_dq, "E_StuckDQ_HTRTPD_withTemp.csv", sep = ',', row.names = FALSE
 # and cast(u.wafer as int)=cast(regexp_extract(c.waferno, '.*\\.(\\d+)',1) as int);
 
 crosst <- read.csv("E_3temp_ds_full.csv", header = TRUE, sep = ",", na.strings = c("NULL", "NaN", "NA"), stringsAsFactors = TRUE)
+
 ## split data for 3 sets to study separate
 crosst %>% dim
 subH <-  subset(crosst, crosst$u.tem == '85')
@@ -134,6 +135,8 @@ subL[,1775:178] %>% head
 write.table(subL, "K_LTPD_DS_full.csv", sep = ',', row.names = FALSE)
 
 
+
+## study with cross temp
 crosst[,1773:1781] %>% head
 df <- crosst
 # make copy of original table and work with copy in case if something going wrong...
@@ -141,7 +144,7 @@ df <- crosst
 df %>% dim 
 #  3648 1781
 # 
-
+names(df) <- substring(names(df) , 3)
 #names(df) <- substring(names(df[,1:348]), 3) remove  first 2 elements from names
 nm<- names(df)
 nm
@@ -151,7 +154,7 @@ df.c.f.t <- df[,c(1774:1781)]
 df.c.f.t %>% head
 
 # identefy and remove fisrt 36colomn and last 5 and remove them
-n1 <- names(df[,1:36])
+n1 <- names(df[,1:38])
 n1
 # [1] "c.key"              "c.product"          "c.module"           "c.process"          "c.lotno"           
 # [6] "c.testerno"         "c.stageno"          "c.foupno"           "c.slotno"           "c.waferid"         
@@ -165,7 +168,7 @@ n2 <- names(df[, 1774:1781])
 n2
 #[1] "u.lot"     "u.wafer"   "u.x"       "u.y"       "u.level"   "u.cycling" "u.fbc"
 # cut away n1 and n2
-df <- df[, -c(1:36, 1774:1781) ]
+df <- df[, -c(1:38, 1774:1781) ]
 df <- data.table(df)
 drop.cols <- grep("avro_file_name$", colnames(df))
 drop.cols
@@ -180,11 +183,11 @@ df <-df[, (drop.cols) := NULL]
 
 df %>% names 
 # remove first 2 simbols in col names to make it easy to read
-names(df) <- substring(names(df) , 3)
+df <- data.frame(df)
 
 df1 <- df  # save original  df as df1
 df %>% dim 
-# 3648 1737
+# 18231  1733
 df %>%  names
 
 cat('Number of Columns in the original table: ' , ncol(df),'\n')
@@ -216,9 +219,9 @@ df<-df[, !names(df) %in% num_a]
 print('Omitting nzv result')
 print(ncol(df))
 # 811
-cat('Number of columns with near zero variance: ,',length(a),'\n')
+cat('Number of columns with near zero variance: ,',length(num_a),'\n')
 cat('Name of These columns: ,')
-cat(a,'\n', sep = ',')
+cat(num_a,'\n', sep = ',')
 df3 <- df
 # names_b_cor <- names(df3)
 # names_b_cor
@@ -254,25 +257,25 @@ col.name
 # now I will add back cycling, FBC, level and temper 
 df %>% dim
 df.c.f.t %>% names
-df$tem <- df.c.f.t$u.tem
-df$ level <- df.c.f.t$u.level
-df$cycling <- df.c.f.t$u.cycling
-df$fbc <- df.c.f.t$u.fbc
+df$tem <- df.c.f.t$tem
+df$ level <- df.c.f.t$level
+df$cycling <- df.c.f.t$cycling
+df$fbc <- df.c.f.t$fbc
 df %>% dim
 # [1] 3648   347
-df[,348:354] %>% head
+df[,348:352] %>% head
 
-library(data.table)
-df <- data.table(df)
-drop.cols <- grep("avro_file_name$", colnames(df))
-drop.cols
-# 197
-df[, (drop.cols) := NULL]
-df %>% dim
-drop.cols <- grep("original_file_$", colnames(df))
-drop.cols
-df6_3temp <- df
-# final resul after cleaning [1] [1] 3648  346
+# library(data.table)
+# df <- data.table(df)
+# drop.cols <- grep("avro_file_name$", colnames(df))
+# drop.cols
+# # 197
+# df[, (drop.cols) := NULL]
+# df %>% dim
+# drop.cols <- grep("original_file_$", colnames(df))
+# drop.cols
+# df6_3temp <- df
+# # final resul after cleaning
 
 ##  save as csv file for next step
 write.csv(df, outputPath, row.names=FALSE, na="")
@@ -281,12 +284,12 @@ write.csv(df6_3temp, "E_CrossTemp_formodel.csv", row.names=FALSE, na="")
 
 #-----------------LASSO--------------------------------------------------------
 df <- df6_3temp
-df[,340:353] %>% head
+df[,340:352] %>% head
 # model with CV and lambda min
 set.seed(777)
 df$fbc %>% summary
-out1 <- data.frame(which( df$fbc > 200, arr.ind = T))
-out1
+# out1 <- data.frame(which( df$fbc > 200, arr.ind = T))
+# out1
 #df[c(2833, 2853, 2854), 347]
 # fbc
 # 1:  826
@@ -301,19 +304,17 @@ df_hclean <- df
 df %>% dim
 df %>% names
 
-x <- model.matrix(fbc~. , -353, data=df )
-x %>% names
-x <- data.table(x)
-x %>% names  
-## we need to delete  "original_file_name$"-----------------------------------TRASH???_____________________
-#x <- x[, -c(189:214)]
-
-x %>% names
-x <- as.matrix(x)
+x <- model.matrix(fbc~. , -352, data=df )
+# x %>% names
+# x <- data.table(x)
+# x %>% names  
+# 
+# x %>% names
+# x <- as.matrix(x)
 x %>% dim
-x[, 340:354] %>% head
-df[, 340:346] %>% head
-y <- as.matrix(df[, 353]) # Only fbc
+x[, 340:353] %>% head
+df[, 340:352] %>% head
+y <- as.matrix(df[, 352]) # Only fbc
 y %>% head
 cv = cv.glmnet(x, y)
 cv
@@ -356,15 +357,15 @@ model$lambda
 df$tem
 pred2 <- predict(model_s,x, s="lambda.min",type="response")
 plot(pred2,y)
-plot(pred2, y,  xlab = "prediction", ylab = "fbc",col = "orange", main = "Prediction VS Actual for Cross Temperature
+plot( pred2, y,  xlab = "Predicted", ylab = "Actual fbc",col = "orange", main = "Prediction VS Actual for Cross Temperature
      of on model Lasso, lambda min= 0.0003424189") 
-abline(lm(y ~ pred2, data=df))
+#abline(lm(y ~ pred2, data=df))
 # plot prediction as a slop for the 151 dies
-abline(lm(y ~ pred2 + 0),  col="blue")
+#abline(lm(y ~ pred2 + 0),  col="blue")
 
 # I want to make the result table with coloms
-temp <- pred1%>% summary
-temp$i
+# temp <- pred1%>% summary
+# temp$i
 
 #  [1]   1   5  22  45  64  69  78  80  81 163 166 168 174 189 196 205 215 220 289 290 303 304 312 314 331 334 335 339 344
 #[30] 347 348 349 351 352 353
@@ -422,9 +423,10 @@ write.csv(res, "CrossTemp_result_of_CV_pred1_lasso.csv")
 ######----------------LASSO 2-------------------------------------
 set.seed(777)
 df %>% dim()
-df[348:353] %>% head
-x <- model.matrix(fbc~. , -353, data=df )
-y <- as.matrix(df[, 353]) # Only fbc
+df %>% names
+df[348:352] %>% head
+x <- model.matrix(fbc~. , -352, data=df )
+y <- as.matrix(df[, 352]) # Only fbc
 y
 cv.lasso <- cv.glmnet(x, y, nfold=10, alpha=1, parallel=TRUE, standardize=TRUE, standardize.response = TRUE, type.measure='mae')
 cv.lasso
@@ -477,9 +479,9 @@ df_m <- cbind(df_m, df_l)
 df_m %>% names
 
 #df_m$levelMP <- rename(df_m$`df$levelMP`)
-colnames(df_m)[354] <- "levelLP" 
-colnames(df_m)[355] <- "levelMP"
-colnames(df_m)[356] <- "levelUP"
+colnames(df_m)[353] <- "levelLP" 
+colnames(df_m)[354] <- "levelMP"
+colnames(df_m)[355] <- "levelUP"
 df_m <- df_m[, -"level"]
 df_m %>% names
 ss <-df_m %>% select(f)
@@ -559,7 +561,7 @@ result<-cbind(af.rf,PctExp=afss.rf/sum(afss.rf)*100)
 res_sort <- result[order(- result$PctExp),]  # sorting coeff
 res_sort1 <- res_sort[-2,]
 res_sort1 <- res_sort1[1:30,]
-write.csv(res_sort1, file = "E_crossTemp_Lasso_stan_anova.csv")
+write.csv(res_sort1, file = "E_crossTemp_Lasso_stan_anova11.csv")
 
 
 
@@ -584,12 +586,14 @@ train_ind <- sample(seq_len(nrow(df)), size = smp_size, replace = FALSE  )
 train <- df[train_ind, ]
 test <- df[-train_ind, ]
 #
-
-df.boost=gbm(fbc ~ . ,data = df[train_ind, ],distribution = "gaussian",n.trees = 1000,
+st.time <- Sys.time()
+df.boost=gbm(fbc ~ . ,data = df[train_ind, ],distribution = "gaussian",n.trees = 3000,
              shrinkage = 0.01, interaction.depth = 4)
 df.boost
 # time was about 30 sec 
-
+end.time <- Sys.time()
+taken.time <- end.time-st.time
+taken.time
 s<-summary(df.boost) #Summary gives a table of Variable Importance and a plot of Variable Importance
 s 
 s<- data.table(s)
@@ -610,12 +614,12 @@ p_boost %>% head(30)
 # OOB underestimates the optimal number of iterations
 best.iter <- gbm.perf(df.boost,method="OOB")
 print(best.iter)
-f.predict <- predict(df.boost,test[,-353],best.iter)
+f.predict <- predict(df.boost,test[,-352],best.iter)
 f.predict
 
-f1.predict <- predict(df.boost, train[,-353], n.trees = 300, type = "response")
+f1.predict <- predict(df.boost, train[,-352], n.trees = 300, type = "response")
 f1.predict
-gbm.preddf <- data.frame(train[,353], f1.predict)
+gbm.preddf <- data.frame(train[,352], f1.predict)
 
 head(data.frame("PredictedProbability" = f1.predict,"Actual" = train$fbc))
 
@@ -623,12 +627,12 @@ plot( f1.predict, train$fbc,
       
       xlab = "prediction", ylab = "fbc",col = "dark red", 
       main = "Rate of actual Cross Temp FBC rate againt of predicted GBM") 
-plot(f1.predict, train$fbc,   xlab = "prediction", ylab = "fbc",col = " darkorange", main = "Rate of actual Cross Temp FBC growth against to predicted, 
+plot( train$fbc, f1.predict,  xlab = "Actual FBC", ylab = "Predcted FBC",col = " darkorange", main = "Rate of actual Cross Temp FBC growth against to predicted, 
      based on Gradient Boosting Machine")            
 # plot prediction as a slop for the 151 dies
-abline(lm( train$fbc ~ f1.predict, data=df))
+abline(lm( f1.predict ~train$fbc  , data=df))
 # plot  perfect prediction line red
-abline(lm(train$fbc ~ f1.predict + 0),  col="blue")
+
 
 #-----------------------------------------------------------------------------end GBM--------------------------
 
@@ -647,11 +651,11 @@ library(data.table)
 start.time <- Sys.time()
 
 
-df <- df6_3temp
+ydf <- df6_3temp
 df <- na.omit(df)
-X_n = df[, -353]
+X_n = df[, -352]
 X_n
-y_n = df[, 353]
+y_n = df[, 352]
 
 ## 75% of the sample size  or may be 80%  ???
 set.seed(123)
@@ -665,24 +669,24 @@ test <- df[-train_ind, ]
 #TRAIN
 train %>% dim
 #[1] 5433  352
-tx <- train[,-c(353)]
+tx <- train[,-c(352)]
 #[1] 16299   353
 names(train)
-tx <- model.matrix(fbc~. , -353, data=train )
-ty <- as.matrix(train[, 353]) # Only slop
+tx <- model.matrix(fbc~. , -352, data=train )
+ty <- as.matrix(train[, 352]) # Only slop
 ty %>% dim
 ty
 # TEST
 test %>% dim
 #[1]  16 353
 names(test)
-y_st <- test[,353]
+y_st <- test[,352]
 y_st %>% summary  # we need to to campare result
-test <- model.matrix(fbc~. , -353, data=test )
-test <- test[, -c(353)]
+test <- model.matrix(fbc~. , -352, data=test )
+test <- test[, -c(352)]
 test
-df_mat <- model.matrix(fbc~., -353, data=df)
-y_mat <- as.matrix(df[,353])
+df_mat <- model.matrix(fbc~., -352, data=df)
+y_mat <- as.matrix(df[,352])
 #X_train obviously all data
 p = df[, 'fbc']
 
@@ -708,7 +712,7 @@ params_features = list(keep_number_feat = NULL, union = TRUE)
 
 feat1 <- wrapper_feat_select(X = tx, y = ty, params_glmnet = params_glmnet, params_xgboost = params_xgboost, 
                              
-                             params_ranger = params_ranger, xgb_sort = 'Gain', CV_folds = 10, stratified_regr = FALSE, 
+                             params_ranger = params_ranger, xgb_sort = 'Gain', CV_folds = 5, stratified_regr = FALSE, 
                              
                              scale_coefs_glmnet = FALSE, cores_glmnet = 5, params_features = params_features, verbose = TRUE)
 ##  run all
@@ -725,9 +729,9 @@ barplot_feat_select(feat1, params_barplot, xgb_sort = 'Cover')
 af <- data.table(feat1$all_feat)
 feat1$all_feat
 feat1$union_feat
-capture.output(af, "E_All_feat_Laaso_XGB_Ranger.csv")
+capture.output(af, "E_All_feat_Laaso_XGB_Ranger11.csv")
 union<-data.table(feat1$union_feat %>% head(50))
-write.table(union, "E_Union_feat_Lasso_XGB_Ranger.csv", row.names = TRUE)
+write.table(union, "E_Union_feat_Lasso_XGB_Ranger11.csv", row.names = TRUE)
 union
 #                             feature importance Frequency
 # 1:                          levelMP  1.0000000         3
@@ -776,9 +780,9 @@ union
 # head(cor_feat)
 #
 df <- as.data.frame(df)
-df_mat <- model.matrix(fbc~. , -353, data=df )
+df_mat <- model.matrix(fbc~. , -352, data=df )
 df_mat %>% head   # just check out the level ia 3 dif col
-y <- as.matrix(df[, 353])
+y <- as.matrix(df[, 352])
 dat = data.frame(p = y, df_mat)
 dat
 cor_feat = func_correlation(dat, target = 'p', correlation_thresh = 0.1, use_obs = 'complete.obs', correlation_method = 'pearson')
@@ -843,9 +847,9 @@ print(cbind(af,PctExp=afss/sum(afss)*100))
 #aaa <- read.csv("E_Union_feat_Laaso_XGB_Ranger.csv")
 aaa <- union
 aaa$feature
-v <- as.vector(aaa$feature)
-v
-v %>% str
+u <- as.vector(aaa$feature)
+u
+u %>% str
 # subset of all data with selected  21 veriables
 df %>% dim
 #   need to extract level in matrix
@@ -856,15 +860,15 @@ df_m <- cbind(df_m, df_l)
 df_m %>% names
 
 #df_m$levelMP <- rename(df_m$`df$levelMP`)
-colnames(df_m)[354] <- "levelLP" 
-colnames(df_m)[355] <- "levelMP"
-colnames(df_m)[356] <- "levelUP"
+colnames(df_m)[353] <- "levelLP" 
+colnames(df_m)[354] <- "levelMP"
+colnames(df_m)[355] <- "levelUP"
 #df_m <- df_m[,-351]
 df_m$level<- NULL
 df_m %>% names
 
 v %>% str
-un <- df_m %>% select(v)
+un <- df_m %>% select(u)
 un %>% dim
 un %>% names
 
@@ -874,26 +878,26 @@ df$fbc
 un$fbc <-df$fbc
 un %>%dim
 
-write.csv(un, "E_CrossTemp_XGB_Ranger_LASSO_DSsubset.csv")
+write.csv(un, "E_CrossTemp_XGB_Ranger_LASSO_DSsubset11.csv")
 
 # Linear model without standardizing predictors
 lmod_un <- lm(fbc~., un)
 lmod_un
 summary(lmod_un)
 lmod_s <-lmod_un %>% summary
-capture.output(lmod_summary, file = "E_Union_linmodel_crosstemp_subset.txt")
+capture.output(lmod_summary, file = "E_Union_linmodel_crosstemp_subset11.txt")
 af <- anova(lmod_un)
 afss <- af$"Sum Sq"
 print(cbind(af,PctExp=afss/sum(afss)*100))
 AnovaUn <-cbind(af,PctExp=afss/sum(afss)*100)
 AnovaUn <- AnovaUn[-c(51),]
 AnovaUn
-write.csv(AnovaUn, "E_UnionModel_contribution.csv")
+write.csv(AnovaUn, "E_UnionModel_contribution11.csv")
 res_sort <- AnovaUn[order(-AnovaUn$PctExp),]  # sorting coeff PctExp
 res_sort
 res_sortA <- res_sort[1:30,]
 res_sortA
-write.csv(res_sortA, file ="E_UnionModel_contribution_sorted.csv")
+write.csv(res_sortA, file ="E_UnionModel_contribution_sorted11.csv")
 
 
 #plot(lmod_un,  main = " Statistics of union of models")
@@ -922,12 +926,12 @@ print(cbind(af,PctExp=afss/sum(afss)*100))
 AnovaUn <-cbind(af,PctExp=afss/sum(afss)*100)
 AnovaUn <- AnovaUn[-c(51),]
 AnovaUn
-write.csv(AnovaUn, "E_UnionModel_contribution_standardized.csv")
+write.csv(AnovaUn, "E_UnionModel_contribution_standardized11.csv")
 res_sort <- AnovaUn[order(- AnovaUn$PctExp),]  # sorting coeff PctExp
 
 res_sortB <- res_sort[1:50,]
 res_sortB
-write.csv(res_sortB, file ="E_UnionModel_contribution_sorted_Standardized.csv")
+write.csv(res_sortB, file ="E_UnionModel_contribution_sorted_Standardized11.csv")
 
 # Df                                       Sum Sq      Mean Sq      F value        Pr(>F)       PctExp
 # levelMP                              1 1.167864e+03 1.167864e+03 3.301053e+03  0.000000e+00 6.448722e+00
